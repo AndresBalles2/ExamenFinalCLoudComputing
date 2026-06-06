@@ -20,18 +20,11 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
-    - name: Resolve VPC from subnet
-      run: |
-        VPC_ID=$(aws ec2 describe-subnets --subnet-ids subnet-042ea3825a43aaa37 --query 'Subnets[0].VpcId' --output text)
-        echo "VPC_ID=${VPC_ID}" >> $GITHUB_ENV
-
     - name: Deploy Security
       run: |
         aws cloudformation deploy \
         --stack-name Security-Andrea-Andres \
-        --template-file templates/security.yml \
-        --parameter-overrides VpcId=$VPC_ID \
-        --region us-east-1
+        --template-file templates/security.yml
 
     - name: Deploy EC2
       run: |

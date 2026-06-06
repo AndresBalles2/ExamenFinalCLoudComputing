@@ -31,7 +31,7 @@ Resources:
       Port: 80
       Protocol: HTTP
       TargetType: instance
-      VpcId: vpc-05777cf4d0d1b1c0f
+      VpcId: vpc-08b68991adb3a04e1
       HealthCheckPath: /
       HealthCheckProtocol: HTTP
 
@@ -45,8 +45,8 @@ Resources:
         - !ImportValue ALBSecurityGroupId
 
       Subnets:
-        - subnet-0628d873871536ee2
-        - subnet-0c39c521b9d4f225f
+        - subnet-042ea3825a43aaa37
+        - subnet-0dcc32f185b643fea
 
   Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
@@ -70,8 +70,8 @@ Resources:
       DesiredCapacity: '1'
 
       VPCZoneIdentifier:
-        - subnet-0628d873871536ee2
-        - subnet-0c39c521b9d4f225f
+        - subnet-042ea3825a43aaa37
+        - subnet-0dcc32f185b643fea
 
       LaunchTemplate:
         LaunchTemplateId: !Ref LaunchTemplate
