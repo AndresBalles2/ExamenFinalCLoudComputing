@@ -24,7 +24,9 @@ jobs:
       run: |
         aws cloudformation deploy \
         --stack-name Security-Andrea-Andres \
-        --template-file templates/security.yml
+        --template-file templates/security.yml \
+        --parameter-overrides VpcId=vpc-08b68991adb3a04e1 \
+        --region us-east-1
 
     - name: Deploy EC2
       run: |
