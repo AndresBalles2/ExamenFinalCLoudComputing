@@ -40,22 +40,21 @@ jobs:
 
     - name: Deploy ALB-ASG
       run: |
-        # Determine VPC from subnet and deploy ALB-ASG using the chosen public subnets
-        VPC_ID=$(aws ec2 describe-subnets --subnet-ids subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea --query 'Subnets[0].VpcId' --output text)
         aws cloudformation deploy \
         --stack-name ALB-ASG-Andrea-Andres \
         --template-file templates/alb-asg.yml \
         --parameter-overrides \
-          VpcId=${VPC_ID} \
+          VpcId=vpc-08b68991adb3a04e1 \
           PublicSubnetIds="subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea" \
-          SecurityStackName=Security-Andrea-Andres
+          SecurityStackName=Security-Andrea-Andres \
+        --region us-east-1
 
     - name: Deploy Automation
       run: |
-        # Deploy automation stack using the same public subnets and referencing ALB-ASG stack
         aws cloudformation deploy \
         --stack-name Automation-Andrea-Andres \
         --template-file templates/automation.yml \
         --parameter-overrides \
           BaseStackName=ALB-ASG-Andrea-Andres \
-          PublicSubnetIds="subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea"
+          PublicSubnetIds="subnet-042ea3825a43aaa37,subnet-0dcc32f185b643fea" \
+        --region us-east-1
