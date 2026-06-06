@@ -10,6 +10,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,7 +29,8 @@ jobs:
             --stack-name security-stack \
             --template-file templates/security.yml \
             --parameter-overrides VpcId=${{ secrets.VPC_ID }} \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region $AWS_REGION
 
       - name: Deploy EC2 Stack
         run: |
@@ -38,7 +41,8 @@ jobs:
               SubnetId=${{ secrets.PUBLIC_SUBNET_ID }} \
               SecurityGroupId=$(aws cloudformation describe-stacks --stack-name security-stack --query "Stacks[0].Outputs[?OutputKey=='PublicEC2SecurityGroupId'].OutputValue" --output text) \
               InstanceType=t3.micro \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region $AWS_REGION
 
       - name: Deploy ALB-ASG Stack
         run: |
@@ -54,7 +58,8 @@ jobs:
               MinSize=1 \
               MaxSize=2 \
               WarmPoolPreparedCapacity=1 \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region $AWS_REGION
 
       - name: Deploy Automation Stack
         run: |
@@ -72,4 +77,5 @@ jobs:
               ScaleOutAfternoonCron='cron(0 16 * * ? *)' \
               ScaleInEveningCron='cron(0 20 * * ? *)' \
               ScaleInNightCron='cron(0 23 * * ? *)' \
-            --capabilities CAPABILITY_NAMED_IAM
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region $AWS_REGION
