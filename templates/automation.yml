@@ -1,184 +1,36 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Scheduled scaling automation with Launch Template version 2 and ASG update
-
-Parameters:
-  BaseStackName:
-    Type: String
-    Description: Name of the base stack that exports the Target Group and Security Group
-
-  PublicSubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: Public subnets where the Auto Scaling Group will launch instances
-
-  InstanceType:
-    Type: String
-    Default: t3.micro
-    AllowedValues:
-      - t3.micro
-      - t3.small
-      - t3.medium
-    Description: EC2 instance type
-
-  DesiredCapacity:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 4
-    Description: Initial desired capacity for the Auto Scaling Group
-
-  MinSize:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 4
-    Description: Minimum number of instances
-
-  MaxSize:
-    Type: Number
-    Default: 4
-    MinValue: 1
-    MaxValue: 8
-    Description: Maximum number of instances
-
-  ScaleOutMorningCron:
-    Type: String
-    Default: 'cron(0 12 * * ? *)'
-    Description: UTC cron for the first scale-out action
-
-  ScaleOutAfternoonCron:
-    Type: String
-    Default: 'cron(0 16 * * ? *)'
-    Description: UTC cron for the second scale-out action
-
-  ScaleInEveningCron:
-    Type: String
-    Default: 'cron(0 20 * * ? *)'
-    Description: UTC cron for the first scale-in action
-
-  ScaleInNightCron:
-    Type: String
-    Default: 'cron(0 23 * * ? *)'
-    Description: UTC cron for the second scale-in action
+Description: Automation Stack Andrea-Andres
 
 Resources:
-  WebLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateData:
-        ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
-        InstanceType: !Ref InstanceType
-        NetworkInterfaces:
-          - DeviceIndex: 0
-            AssociatePublicIpAddress: true
-            Groups:
-              - Fn::ImportValue: !Sub '${BaseStackName}-InstanceSecurityGroupId'
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -eux
-            yum update -y
-            yum install -y httpd
-            systemctl enable httpd
-            systemctl start httpd
-            cat > /var/www/html/index.html <<'EOF'
-            <html>
-              <head><title>Automation Stack</title></head>
-              <body style="font-family: Arial; text-align: center; margin-top: 40px;">
-                <h1>Version 1 del Launch Template</h1>
-              </body>
-            </html>
-            EOF
 
-  WebLaunchTemplateV2:
-    Type: AWS::EC2::LaunchTemplateVersion
-    Properties:
-      LaunchTemplateId: !Ref WebLaunchTemplate
-      SourceVersion: !GetAtt WebLaunchTemplate.LatestVersionNumber
-      VersionDescription: Second version with updated web page
-      LaunchTemplateData:
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -eux
-            yum update -y
-            yum install -y httpd
-            systemctl enable httpd
-            systemctl start httpd
-            cat > /var/www/html/index.html <<'EOF'
-            <html>
-              <head><title>Automation Stack</title></head>
-              <body style="font-family: Arial; text-align: center; margin-top: 40px;">
-                <h1>Version 2 del Launch Template</h1>
-                <p>El Auto Scaling Group usa esta nueva version.</p>
-              </body>
-            </html>
-            EOF
-
-  WebAutoScalingGroup:
-    Type: AWS::AutoScaling::AutoScalingGroup
-    Properties:
-      AutoScalingGroupName: !Sub '${AWS::StackName}-asg'
-      DesiredCapacity: !Ref DesiredCapacity
-      HealthCheckGracePeriod: 120
-      HealthCheckType: ELB
-      LaunchTemplate:
-        LaunchTemplateId: !Ref WebLaunchTemplate
-        Version: !GetAtt WebLaunchTemplateV2.VersionNumber
-      MaxSize: !Ref MaxSize
-      MinSize: !Ref MinSize
-      TargetGroupARNs:
-        - Fn::ImportValue: !Sub '${BaseStackName}-TargetGroupArn'
-      VPCZoneIdentifier: !Ref PublicSubnetIds
-      Tags:
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-web'
-          PropagateAtLaunch: true
-
-  ScaleOutMorning:
+  ScaleUpMorning:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
-      AutoScalingGroupName: !Ref WebAutoScalingGroup
+      AutoScalingGroupName: ASG-Andrea-Andres
       DesiredCapacity: 2
-      MaxSize: 4
-      MinSize: 2
-      Recurrence: !Ref ScaleOutMorningCron
+      Recurrence: "0 8 * * *"
 
-  ScaleOutAfternoon:
+  ScaleUpNoon:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
-      AutoScalingGroupName: !Ref WebAutoScalingGroup
+      AutoScalingGroupName: ASG-Andrea-Andres
       DesiredCapacity: 3
-      MaxSize: 5
-      MinSize: 3
-      Recurrence: !Ref ScaleOutAfternoonCron
+      Recurrence: "0 12 * * *"
 
-  ScaleInEvening:
+  ScaleDownEvening:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
-      AutoScalingGroupName: !Ref WebAutoScalingGroup
+      AutoScalingGroupName: ASG-Andrea-Andres
       DesiredCapacity: 2
-      MaxSize: 3
-      MinSize: 1
-      Recurrence: !Ref ScaleInEveningCron
+      Recurrence: "0 18 * * *"
 
-  ScaleInNight:
+  ScaleDownNight:
     Type: AWS::AutoScaling::ScheduledAction
     Properties:
-      AutoScalingGroupName: !Ref WebAutoScalingGroup
+      AutoScalingGroupName: ASG-Andrea-Andres
       DesiredCapacity: 1
-      MaxSize: 2
-      MinSize: 1
-      Recurrence: !Ref ScaleInNightCron
+      Recurrence: "0 22 * * *"
 
 Outputs:
-  LaunchTemplateId:
-    Description: Launch Template identifier
-    Value: !Ref WebLaunchTemplate
-
-  LaunchTemplateVersion2:
-    Description: Second version number of the Launch Template
-    Value: !GetAtt WebLaunchTemplateV2.VersionNumber
-
-  AutoScalingGroupName:
-    Description: Auto Scaling Group name
-    Value: !Ref WebAutoScalingGroup
+  Message:
+    Value: Automation Configured

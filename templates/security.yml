@@ -1,53 +1,44 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Security groups for the solution
-
-Parameters:
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC where the security groups will be created
+Description: Security Stack Andrea-Andres
 
 Resources:
-  PublicEC2SecurityGroup:
+
+  EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for the public EC2 instance
-      VpcId: !Ref VpcId
+      GroupDescription: Security Group EC2
+      GroupName: SecurityGroups-EC2-Andrea-Andres
+      VpcId: vpc-05777cf4d0d1b1c0f
       SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
+        - IpProtocol: -1
           CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  ApplicationLoadBalancerSecurityGroup:
+  ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for the Application Load Balancer
-      VpcId: !Ref VpcId
+      GroupDescription: Security Group ALB
+      GroupName: SecurityGroups-ALB-Andrea-Andres
+      VpcId: vpc-05777cf4d0d1b1c0f
       SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: 0.0.0.0/0
-      SecurityGroupEgress:
-        - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
 Outputs:
-  PublicEC2SecurityGroupId:
-    Description: Security Group ID for the public EC2 instance
-    Value: !Ref PublicEC2SecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-PublicEC2SecurityGroupId'
 
-  ApplicationLoadBalancerSecurityGroupId:
-    Description: Security Group ID for the Application Load Balancer
-    Value: !Ref ApplicationLoadBalancerSecurityGroup
+  EC2SecurityGroupId:
+    Value: !Ref EC2SecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-ApplicationLoadBalancerSecurityGroupId'
+      Name: EC2SecurityGroupId
+
+  ALBSecurityGroupId:
+    Value: !Ref ALBSecurityGroup
+    Export:
+      Name: ALBSecurityGroupId

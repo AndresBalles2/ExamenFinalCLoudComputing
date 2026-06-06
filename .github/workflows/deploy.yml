@@ -3,105 +3,43 @@ name: Deploy
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
-  deploy:
+
+  Deploy:
+
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Debug connectivity and environment
-        run: |
-          echo "--- ENV (AWS and proxy vars) ---"
-          env | egrep 'AWS|HTTP|HTTPS' || true
+    - uses: actions/checkout@v4
 
-          echo "--- AWS CLI version ---"
-          aws --version || true
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: us-east-1
 
-          echo "--- STS caller identity (uses configured creds) ---"
-          aws sts get-caller-identity --region "$AWS_REGION" || true
+    - name: Deploy Security
+      run: |
+        aws cloudformation deploy \
+        --stack-name Security-Andrea-Andres \
+        --template-file templates/security.yml
 
-          echo "--- CloudFormation endpoint connectivity (HEAD) ---"
-          curl -sS -D - https://cloudformation.$AWS_REGION.amazonaws.com/ -o /dev/null --max-time 10 || true
+    - name: Deploy EC2
+      run: |
+        aws cloudformation deploy \
+        --stack-name EC2-Andrea-Andres \
+        --template-file templates/ec2.yml
 
-          echo "--- DNS resolution for CloudFormation endpoint ---"
-          if command -v nslookup >/dev/null 2>&1; then nslookup cloudformation.$AWS_REGION.amazonaws.com || true; fi
-          if command -v host >/dev/null 2>&1; then host cloudformation.$AWS_REGION.amazonaws.com || true; fi
-          if command -v dig >/dev/null 2>&1; then dig +short cloudformation.$AWS_REGION.amazonaws.com || true; fi
+    - name: Deploy ALB-ASG
+      run: |
+        aws cloudformation deploy \
+        --stack-name ALB-ASG-Andrea-Andres \
+        --template-file templates/alb-asg.yml
 
-          echo "--- Quick TCP check (may be blocked by CI) ---"
-          (echo > /dev/tcp/$(dig +short cloudformation.$AWS_REGION.amazonaws.com | head -n1)/443) >/dev/null 2>&1 || echo "TCP 443 test failed or not supported in runner"
-
-      - name: Ensure AWS region
-        run: |
-          echo "AWS_REGION is set to '$AWS_REGION' (secrets or default)."
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Deploy Security Stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name security-stack \
-            --template-file templates/security.yml \
-            --parameter-overrides VpcId=${{ secrets.VPC_ID }} \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region $AWS_REGION
-
-      - name: Deploy EC2 Stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name ec2-stack \
-            --template-file templates/ec2.yml \
-            --parameter-overrides \
-              SubnetId=${{ secrets.PUBLIC_SUBNET_ID }} \
-              SecurityGroupId=$(aws cloudformation describe-stacks --stack-name security-stack --query "Stacks[0].Outputs[?OutputKey=='PublicEC2SecurityGroupId'].OutputValue" --output text) \
-              InstanceType=t3.micro \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region $AWS_REGION
-
-      - name: Deploy ALB-ASG Stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name alb-asg-stack \
-            --template-file templates/alb-asg.yml \
-            --parameter-overrides \
-              VpcId=${{ secrets.VPC_ID }} \
-              SecurityStackName=security-stack \
-              PublicSubnetIds="${{ secrets.PUBLIC_SUBNET_IDS }}" \
-              InstanceType=t3.micro \
-              DesiredCapacity=1 \
-              MinSize=1 \
-              MaxSize=2 \
-              WarmPoolPreparedCapacity=1 \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region $AWS_REGION
-
-      - name: Deploy Automation Stack
-        run: |
-          aws cloudformation deploy \
-            --stack-name automation-stack \
-            --template-file templates/automation.yml \
-            --parameter-overrides \
-              BaseStackName=alb-asg-stack \
-              PublicSubnetIds="${{ secrets.PUBLIC_SUBNET_IDS }}" \
-              InstanceType=t3.micro \
-              DesiredCapacity=1 \
-              MinSize=1 \
-              MaxSize=4 \
-              ScaleOutMorningCron='cron(0 12 * * ? *)' \
-              ScaleOutAfternoonCron='cron(0 16 * * ? *)' \
-              ScaleInEveningCron='cron(0 20 * * ? *)' \
-              ScaleInNightCron='cron(0 23 * * ? *)' \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --region $AWS_REGION
+    - name: Deploy Automation
+      run: |
+        aws cloudformation deploy \
+        --stack-name Automation-Andrea-Andres \
+        --template-file templates/automation.yml

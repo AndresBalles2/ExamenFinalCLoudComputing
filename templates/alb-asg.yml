@@ -1,186 +1,110 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Simple ALB + Target Group + Launch Template + ASG + Warm Pool with Apache
-
-Parameters:
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-    Description: VPC where the stack will be deployed
-
-  SecurityStackName:
-    Type: String
-    Description: Name of the stack that exports the ALB security group
-
-  PublicSubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
-    Description: Public subnets for the Application Load Balancer and instances
-
-  InstanceType:
-    Type: String
-    Default: t3.micro
-    AllowedValues:
-      - t3.micro
-      - t3.small
-      - t3.medium
-    Description: EC2 instance type for the Auto Scaling Group
-
-  DesiredCapacity:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 4
-    Description: Desired number of EC2 instances
-
-  MinSize:
-    Type: Number
-    Default: 1
-    MinValue: 1
-    MaxValue: 4
-    Description: Minimum number of EC2 instances in the Auto Scaling Group
-
-  MaxSize:
-    Type: Number
-    Default: 2
-    MinValue: 1
-    MaxValue: 8
-    Description: Maximum number of EC2 instances in the Auto Scaling Group
-
-  WarmPoolPreparedCapacity:
-    Type: Number
-    Default: 1
-    MinValue: 0
-    MaxValue: 4
-    Description: Number of instances kept ready in the warm pool
+Description: ALB ASG Stack Andrea-Andres
 
 Resources:
-  InstanceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Allow HTTP traffic from the ALB to the web instances
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          SourceSecurityGroupId: !ImportValue
-            Fn::Sub: '${SecurityStackName}-ApplicationLoadBalancerSecurityGroupId'
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
 
-  WebTargetGroup:
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName: ALB-ASG-Andrea-Andres
+      LaunchTemplateData:
+
+        ImageId: ami-0cca150d127c2216f
+        InstanceType: t3.micro
+
+        SecurityGroupIds:
+          - !ImportValue EC2SecurityGroupId
+
+        UserData:
+          Fn::Base64: |
+            #!/bin/bash
+            yum update -y
+            yum install httpd -y
+            systemctl start httpd
+            systemctl enable httpd
+            echo "<h1>ASG Andrea Andres</h1>" > /var/www/html/index.html
+
+  TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      HealthCheckPath: /
-      HealthCheckPort: '80'
-      HealthCheckProtocol: HTTP
-      Matcher:
-        HttpCode: '200'
+      Name: TG-Andrea-Andres
       Port: 80
       Protocol: HTTP
       TargetType: instance
-      VpcId: !Ref VpcId
+      VpcId: vpc-05777cf4d0d1b1c0f
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
 
-  WebLoadBalancer:
+  ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
+      Name: ALB-Andrea-Andres
       Scheme: internet-facing
-      SecurityGroups:
-        - !ImportValue
-            Fn::Sub: '${SecurityStackName}-ApplicationLoadBalancerSecurityGroupId'
-      Subnets: !Ref PublicSubnetIds
-      Type: application
 
-  WebListener:
+      SecurityGroups:
+        - !ImportValue ALBSecurityGroupId
+
+      Subnets:
+        - subnet-0628d873871536ee2
+        - subnet-0c39c521b9d4f225f
+
+  Listener:
     Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref WebTargetGroup
-      LoadBalancerArn: !Ref WebLoadBalancer
+      LoadBalancerArn: !Ref ApplicationLoadBalancer
       Port: 80
       Protocol: HTTP
 
-  WebLaunchTemplate:
-    Type: AWS::EC2::LaunchTemplate
-    Properties:
-      LaunchTemplateData:
-        ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
-        InstanceType: !Ref InstanceType
-        NetworkInterfaces:
-          - DeviceIndex: 0
-            AssociatePublicIpAddress: true
-            Groups:
-              - !Ref InstanceSecurityGroup
-        UserData:
-          Fn::Base64: !Sub |
-            #!/bin/bash
-            set -eux
-            yum update -y
-            yum install -y httpd
-            systemctl enable httpd
-            systemctl start httpd
-            cat > /var/www/html/index.html <<'EOF'
-            <html>
-              <head><title>Cloud Computing</title></head>
-              <body style="font-family: Arial; text-align: center; margin-top: 40px;">
-                <h1>Aplicacion desplegada con Auto Scaling Group</h1>
-                <p>Esta instancia fue creada automaticamente con UserData.</p>
-              </body>
-            </html>
-            EOF
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
 
-  WebAutoScalingGroup:
+  AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
     Properties:
-      AutoScalingGroupName: !Sub '${AWS::StackName}-asg'
-      DesiredCapacity: !Ref DesiredCapacity
-      HealthCheckGracePeriod: 120
-      HealthCheckType: ELB
+
+      AutoScalingGroupName: ASG-Andrea-Andres
+
+      MinSize: '1'
+      MaxSize: '3'
+      DesiredCapacity: '1'
+
+      VPCZoneIdentifier:
+        - subnet-0628d873871536ee2
+        - subnet-0c39c521b9d4f225f
+
       LaunchTemplate:
-        LaunchTemplateId: !Ref WebLaunchTemplate
-        Version: !GetAtt WebLaunchTemplate.LatestVersionNumber
-      MaxSize: !Ref MaxSize
-      MinSize: !Ref MinSize
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
+
       TargetGroupARNs:
-        - !Ref WebTargetGroup
-      VPCZoneIdentifier: !Ref PublicSubnetIds
+        - !Ref TargetGroup
+
       Tags:
         - Key: Name
-          Value: !Sub '${AWS::StackName}-web'
+          Value: ASG-Andrea-Andres
           PropagateAtLaunch: true
 
-  WebWarmPool:
+  WarmPool:
     Type: AWS::AutoScaling::WarmPool
     Properties:
-      AutoScalingGroupName: !Ref WebAutoScalingGroup
-      MaxGroupPreparedCapacity: !Ref WarmPoolPreparedCapacity
-      PoolState: Stopped
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      MinSize: 1
 
 Outputs:
-  LoadBalancerDNSName:
-    Description: DNS name of the Application Load Balancer
-    Value: !GetAtt WebLoadBalancer.DNSName
 
-  LoadBalancerArn:
-    Description: ARN of the Application Load Balancer
-    Value: !Ref WebLoadBalancer
+  LoadBalancerDNS:
+    Description: DNS del Application Load Balancer
+    Value: !GetAtt ApplicationLoadBalancer.DNSName
 
-  TargetGroupArn:
-    Description: ARN of the Target Group
-    Value: !Ref WebTargetGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-TargetGroupArn'
-
-  InstanceSecurityGroupId:
-    Description: Security Group ID used by the web instances
-    Value: !Ref InstanceSecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-InstanceSecurityGroupId'
-
-  PublicSubnetIds:
-    Description: Public subnet IDs used by the stack
-    Value: !Join [',', !Ref PublicSubnetIds]
+  LaunchTemplateId:
+    Description: Launch Template ID
+    Value: !Ref LaunchTemplate
 
   AutoScalingGroupName:
-    Description: Name of the Auto Scaling Group
-    Value: !Ref WebAutoScalingGroup
+    Description: Auto Scaling Group Name
+    Value: !Ref AutoScalingGroup
+
+  TargetGroupArn:
+    Description: Target Group ARN
+    Value: !Ref TargetGroup

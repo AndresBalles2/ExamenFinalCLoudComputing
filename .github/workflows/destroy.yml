@@ -3,46 +3,31 @@ name: Destroy
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
-  destroy:
+
+  Destroy:
+
     runs-on: ubuntu-latest
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Ensure AWS region
-        run: |
-          echo "AWS_REGION is set to '$AWS_REGION' (secrets or default)."
+    - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: us-east-1
 
-      - name: Destroy Automation Stack
-        run: |
-          aws cloudformation delete-stack --stack-name automation-stack --region $AWS_REGION
-          aws cloudformation wait stack-delete-complete --stack-name automation-stack --region $AWS_REGION
+    - name: Delete Automation
+      run: aws cloudformation delete-stack --stack-name Automation-Andrea-Andres
 
-      - name: Destroy ALB-ASG Stack
-        run: |
-          aws cloudformation delete-stack --stack-name alb-asg-stack --region $AWS_REGION
-          aws cloudformation wait stack-delete-complete --stack-name alb-asg-stack --region $AWS_REGION
+    - name: Delete ALB-ASG
+      run: aws cloudformation delete-stack --stack-name ALB-ASG-Andrea-Andres
 
-      - name: Destroy EC2 Stack
-        run: |
-          aws cloudformation delete-stack --stack-name ec2-stack --region $AWS_REGION
-          aws cloudformation wait stack-delete-complete --stack-name ec2-stack --region $AWS_REGION
+    - name: Delete EC2
+      run: aws cloudformation delete-stack --stack-name EC2-Andrea-Andres
 
-      - name: Destroy Security Stack
-        run: |
-          aws cloudformation delete-stack --stack-name security-stack --region $AWS_REGION
-          aws cloudformation wait stack-delete-complete --stack-name security-stack --region $AWS_REGION
+    - name: Delete Security
+      run: aws cloudformation delete-stack --stack-name Security-Andrea-Andres
