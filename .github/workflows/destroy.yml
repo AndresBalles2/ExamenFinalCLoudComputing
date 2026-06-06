@@ -1,0 +1,42 @@
+name: Destroy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Destroy Automation Stack
+        run: |
+          aws cloudformation delete-stack --stack-name automation-stack
+          aws cloudformation wait stack-delete-complete --stack-name automation-stack
+
+      - name: Destroy ALB-ASG Stack
+        run: |
+          aws cloudformation delete-stack --stack-name alb-asg-stack
+          aws cloudformation wait stack-delete-complete --stack-name alb-asg-stack
+
+      - name: Destroy EC2 Stack
+        run: |
+          aws cloudformation delete-stack --stack-name ec2-stack
+          aws cloudformation wait stack-delete-complete --stack-name ec2-stack
+
+      - name: Destroy Security Stack
+        run: |
+          aws cloudformation delete-stack --stack-name security-stack
+          aws cloudformation wait stack-delete-complete --stack-name security-stack
