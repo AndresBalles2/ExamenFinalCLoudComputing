@@ -16,6 +16,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug connectivity and environment
+        run: |
+          echo "--- ENV (AWS and proxy vars) ---"
+          env | egrep 'AWS|HTTP|HTTPS' || true
+
+          echo "--- AWS CLI version ---"
+          aws --version || true
+
+          echo "--- STS caller identity (uses configured creds) ---"
+          aws sts get-caller-identity --region "$AWS_REGION" || true
+
+          echo "--- CloudFormation endpoint connectivity (HEAD) ---"
+          curl -sS -D - https://cloudformation.$AWS_REGION.amazonaws.com/ -o /dev/null --max-time 10 || true
+
+          echo "--- DNS resolution for CloudFormation endpoint ---"
+          if command -v nslookup >/dev/null 2>&1; then nslookup cloudformation.$AWS_REGION.amazonaws.com || true; fi
+          if command -v host >/dev/null 2>&1; then host cloudformation.$AWS_REGION.amazonaws.com || true; fi
+          if command -v dig >/dev/null 2>&1; then dig +short cloudformation.$AWS_REGION.amazonaws.com || true; fi
+
+          echo "--- Quick TCP check (may be blocked by CI) ---"
+          (echo > /dev/tcp/$(dig +short cloudformation.$AWS_REGION.amazonaws.com | head -n1)/443) >/dev/null 2>&1 || echo "TCP 443 test failed or not supported in runner"
+
       - name: Ensure AWS region
         run: |
           echo "AWS_REGION is set to '$AWS_REGION' (secrets or default)."
