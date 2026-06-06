@@ -16,18 +16,26 @@ jobs:
     - name: Configure AWS
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
 
     - name: Delete Automation
-      run: aws cloudformation delete-stack --stack-name Automation-Andrea-Andres
+      run: |
+        aws cloudformation delete-stack --stack-name Automation-Andrea-Andres --region us-east-1
+        aws cloudformation wait stack-delete-complete --stack-name Automation-Andrea-Andres --region us-east-1
 
     - name: Delete ALB-ASG
-      run: aws cloudformation delete-stack --stack-name ALB-ASG-Andrea-Andres
+      run: |
+        aws cloudformation delete-stack --stack-name ALB-ASG-Andrea-Andres --region us-east-1
+        aws cloudformation wait stack-delete-complete --stack-name ALB-ASG-Andrea-Andres --region us-east-1
 
     - name: Delete EC2
-      run: aws cloudformation delete-stack --stack-name EC2-Andrea-Andres
+      run: |
+        aws cloudformation delete-stack --stack-name EC2-Andrea-Andres --region us-east-1
+        aws cloudformation wait stack-delete-complete --stack-name EC2-Andrea-Andres --region us-east-1
 
     - name: Delete Security
-      run: aws cloudformation delete-stack --stack-name Security-Andrea-Andres
+      run: |
+        aws cloudformation delete-stack --stack-name Security-Andrea-Andres --region us-east-1
+        aws cloudformation wait stack-delete-complete --stack-name Security-Andrea-Andres --region us-east-1
